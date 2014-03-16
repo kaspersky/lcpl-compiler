@@ -1,0 +1,27 @@
+class Vector
+    var String data; Vector next; end;
+
+    init Int n -> Vector:
+        if 0 < n then
+            next = new Vector;
+            [next.init n - 1];
+        end;
+        self;
+    end;
+
+    get Int n -> String:
+        if n == 0 then
+            data;
+        else
+            [next.get n - 1];
+        end;
+    end;
+
+    set Int n, String value -> String:
+        if n == 0 then
+            data = value;
+        else
+            [next.set n - 1, value];
+        end;
+    end;
+end;

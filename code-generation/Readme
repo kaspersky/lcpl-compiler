@@ -1,0 +1,159 @@
+        Tema 3 la Compilatoare
+
+
+Nume:               Vladimir Cernov
+Grupa:              343C1
+Timp de lucru:      48 de ore
+Mediu:              Ubuntu 13.10
+                    Java Oracle SDK 1.7.0_45
+                    LLVM version 3.2
+
+Arhiva contine:
+
+src/            LCPLCodeGen.java, LCPLtoIR.java => sursele temei
+lib/            Bibliotecile java puse la dispozitie
+Makefile        Makefile-ul de care m-am folosit in procesul de rezolvare
+Readme          This file
+
+        Descrierea rezolvarii
+
+    Am pornit de la scheletul de cod prezentat, la care am adaugat o clasa,
+responsabila de emiterea codului intermediar. Am ales sa nu modific ierarhia
+de clase LCPL si am folosit visitors pattern, mai ales ca aceasta abordare
+este identica cu ce am folosit la tema 1 (pe care am facut-o cu ANTLR4).
+
+
+    Asadar, rezolvarea temei consta din 2 etape:
+
+1.  Parcurgerea arborelui sintactic si colectarea unor informatii
+    -   Crearea unor mapari dintre nume clasa - instanta clasa
+    -   Crearea unor mapari clasa - metode
+    -   Crearea unor mapari clasa - atribute
+2.  Parcurgerea arborelui sintactic pentru emiterea de cod intermediar pentru
+    fiecare element din arborele sintactic:
+    -   Declararea datelor din lcpl_runtime (forward definitions)
+    -   Definirea structurii claselor
+    -   Definirea informatiei de runtime a claselor
+    -   Emiterea metodelor
+    -   Emiterea metodelor init a claselor
+    -   Emiterea startup
+
+Obs:    Au fost necesare 2 parcurgeri ale arborelui sintactic pentru cazuri de
+        genul cand o clasa face referire la o alta clasa, dar care inca nu a
+        fost parsata.
+
+
+    Emiterea de cod intermediar pentru elementele din arbore
+
+    Pot fi deosebiti 2 pasi importanti: parsarea unei clase, cand se genereaza
+tipul, rtti, init-ul ei; si parsarea metodelor ei.
+    Cea mai interesanta parte este parsarea unei metode, care se realizeaza in
+felul urmator:
+
+1.  Se reseteaza tabela de simboluri
+2.  Se reseteaza bufferul care contine "declararea simbolurilor"
+3.  Se parseaza fiecare expresie din lista de expresii a metodelor. Pentru
+    aceasta se apeleaza o functie recursiva parseExpression, care va intoarce
+    codul emis de expresie si variabila in care se pastreaza rezultatul.
+
+
+    Parsarea expresiilor
+
+    Reprezinta nucleul temei. Mentionez in continuare detaliile care mi se par
+importante dpdv al intelegerii rezolvarii.
+
+-   Parsarea unui simbol
+        Un simbol este legat la o variabila. Acesta poate fi de 3 tipuri:
+    atribut, parametru formal sau definitie locala. Pentru toate tipurile este
+    adaugata o intrare in tabela de simboluri, o mapare dintre instanta
+    simbolului si variabila IR (registrul) din care simbolul poate fi incarcat
+    cu instructiunea load.
+        Acest pointer este calculat cu getelementptr pentru atribute, iar
+    parametrii formali si definitiile locale sunt salvate in locatii alocate
+    pe stiva.
+        Simbolul self este un pic special, acesta poate sa nu fie prezent in
+    tabela de simboluri, de ex. la initializarea atributelor, cand evaluarea
+    expresiilor init nu intampina simbolul self, dar acesta trebuie oricum
+    incarcat, moment in care codul ir respectiv este emis "manual".
+        La evaluarea metodelor, codul pentru self este generat automat ca
+    pentru orice alt parametru formal. Parametrii formali sunt copiati pe
+    stiva, practic acest lucru reprezinta mecanismul de transmitere a
+    argumentelor prin valoare.
+-   Parsarea IfStatement si WhileStatement
+        Partea dificila este emiterea de labeluri si organizarea codului sub
+    aceste etichete. In cazul If-urilor/While-urilor imbricate, etichetele
+    ar trebui sa aiba cumva o ierarhie logica, insa acest lucru nu se intampla
+    in IR. De ex, daca definim if cumva de forma:
+    ==================================
+    LabelCond:
+        cod conditie
+        check conditie and jump to LabelThen sau LabelElse
+    LabelThen:
+        cod then
+
+        LabelCond2:
+            conditie
+        Then2:
+            cod
+        Else2:
+            cod
+        End2:
+            rezultat
+
+        jump End
+    LabelElse:
+        cod else
+        jump End
+    End:
+        rezultat = phi(Then, Else)
+    ==================================
+        Se observa ca phi combina rezultatul de sub etichetele Then si Else,
+    ceea ce pare logic, insa in ramura Then mai este o instructiune if, care
+    duce la faptul ca rezultat ajunge sub eticheta End2. Din pdv logic, End2
+    este sub Then, dar IR nu tine cont de acest lucru :)
+        Aceasta problema a fost rezolvata prin folosirea unei variabile care
+    contine "eticheta curenta". Aceasta eticheta este updatata in procesul de
+    evaluare If sau While, iar fiecare expresie, in momentul cand intoarce un
+    rezultat, creaza o mapare dintre rezultat si eticheta curenta. Apoi, la
+    introducerea instructiunilor phi, legarile dintre rezultate de expresii si
+    etichete este determinata corect.
+        O alta care trebuie rezolvata apare in momentul cand intr-o ramura
+    este incarcat un simbol, care este folosit mai tarziu in afara if-ului.
+    Apare astfel posibilitatea ca executia sa fi trecut prin alt bloc, iar in
+    momentul folosirii simbolului in afara, acesta sa fie nedefinit.
+        Rezolvarea a constat in folosirea unui buffer special in care este
+    stocat codul de incarcare a simbolurilor. Acest buffer este apoi atasat la
+    inceputul codului IR atasat expresiilor If si While.
+
+    Generarea de nume
+
+    Am ales o conventie putin diferita de ce era sugerata prin enuntul temei.
+
+-   "%eNumar"               Variabile IR
+-   "labelNumar"            Etichete
+-   "struct.TClassname"     Tipul clasei
+-   ".RTClassname"          Tipul rtti-ului clasei
+-   "@RClassName"           Variabile rtti
+-   ".gs"                   Sirul de caractere
+-   "@.gst"                 Variabilele String asociate sirului de caractere
+-   "MNumar_Class_Method"   Metodele claselor
+-   "Classname_init"        Constructori pentru clase
+
+
+Remarce:
+    -   Am intampinat dificultati legate de diferente intre getType() si
+        getTypeData().getName(), functii ale caror rezultate din motive
+        dincolo de intelegerea mea sunt diferite intre ele.
+    -   Am intampinat dificultati legate de simbolul self trasmis atributelor
+    -   Codul IR este stocat in cateva buffere, fiecare cu un rol specific. De
+        ex., constantele string globale, forward declarations pentru lcpl
+        runtime, incarcarea simbolurilor emit cod care este pastrat in buffere
+        diferite. In procesul parsarii, acesta sunt agregate intre ele pentru
+        emiterea de cod intermediar final.
+    -   Urmariti comentariile din codul sursa, probabil aceasta este prima
+        tema pe care am facut-o la care aceste comentarii mi-au fost utile
+        personal, facandu-ma sa nu uit chestii. Ca intotdeauna, aceste
+        comentarii insotesc codul in locuri unde acesta este netrivial.
+    -   Codul IR generat nu contine identari sau comentarii. Pe parcursul
+        rezolvarii temei, acestea au existat intr-o anumita masura, dar am
+        ales sa le sterg pentru ca fisierul *.ir sa aiba dimensiune mai mica.

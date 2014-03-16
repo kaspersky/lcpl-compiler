@@ -1,0 +1,19 @@
+    A Compiler implemented as an assignment for the Compilers course. It is
+designed for the LCPL programming language, an object oriented language
+created for academic purpose.
+
+    The implementation follows 3 steps:
+
+1.  Semantic analysis
+        Done using ANTLR4 parser generator. Using visitor design pattern,
+    a syntactic tree was created from lcpl source code and serialized to disk.
+2.  Syntactic analysis
+        The syntactic tree is imported from the serialized format and parsed
+    in order to find syntactic errors. Additional information is collected and
+    inserted into the tree nodes.
+3.  Code generation
+        The tree is parsed once again to generate code using LLVM IR. This
+    "assembly" code can be compiled to binary using LLVM tool suite.
+
+
+Vladimir Cernov

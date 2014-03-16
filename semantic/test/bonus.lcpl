@@ -1,0 +1,61 @@
+class Vector
+    var String data; Vector next; end;
+
+    init Int n -> Vector:
+        if 0 < n then
+            next = new Vector;
+            [next.init n - 1];
+        end;
+        self;
+    end;
+
+    get Int n -> String:
+        if n == 0 then
+            data;
+        else
+            [next.get n - 1];
+        end;
+    end;
+
+    set Int n, String value -> String:
+        if n == 0 then
+            data = value;
+        else
+            [next.set n - 1, value];
+        end;
+    end;
+end;
+
+class StringStack
+    var
+        String[] st;
+        Int index;
+    end;
+
+    init Int size -> StringStack :
+        st = new String[size];
+        self;
+    end;
+
+    push String o :
+        st[index] = o;
+        index = index + 1;
+    end;
+
+    pop -> String :
+        index = index - 1;
+        st[index];
+    end;
+end;
+
+class Main inherits IO
+    var
+        StringStack stack = [(new StringStack).init 8];
+    end;
+
+    main:
+        [stack.push "Hello"];
+        [stack.push "smile"];
+        [out [stack.pop][1,5]]; # "mile"
+    end;
+end;

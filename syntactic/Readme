@@ -1,0 +1,118 @@
+Vladimir Cernov 343C1
+
+        Tema 2 la Compilatoare
+
+
+Mediu de lucru:
+-   Ubuntu 13.10
+-   Oracle Java SDK 1.7.0_45
+
+
+Folosire:
+    $ make jar
+    $ ./test.sh
+        sau
+    $ ./mylcpltest.sh .
+Pentru bonus folositi optiunea -folding:
+    $ java -jar LCPLSemant.jar -folding in.ast out.run
+
+
+    Am pornit de la arhiva de pornire pusa la dispozitie la adresa [1] si
+testele de la [2]. La 27.11.13 cand scriu acest Readme acestea sunt ultima
+versiune pusa la dispozitie, pe care trec toate testele.
+    Procesul de analiza semantica a fost straight-forward, desi foarte
+anevoios, dupa parerea mea. Eu am urmarit ca ast-urile obtinute sa fie
+identice cu cele puse la dispozitie in teste. Chiar daca acest lucru insemna
+sa nu fac intotdeauna castul implicit de la Int catre String, dupa cum e
+precizat in manualul limbajului.
+
+    Analiza semantica e structurata in cateva etape:
+-   Cateva teste de baza pentru corectitudinea programului. Totodata, se
+    completeaza mapari numeClasa -> Clasa, pentru cautari simple. Sunt create
+    si clasele de baza
+-   Determinarea tipurilor expresiilor. La acest punct sunt depistate si
+    cateva erori, se adauga casturi unde e necesar. In principal, e parcurs
+    arborele sintactic recursiv si se completeaza expresiile cu tipurile
+    corespunzatoare in functie de rezultatul evaluarii subexpresiilor.
+-   Cateva completari si teste finale.
+
+    Pentru exceptii am folosit un grup de clase definite de mine. Puteam sa
+folosesc o singura clasa, dar am hotarat ca ar fi mai bine sa poti prinde
+numai un subset de erori de la analiza semantica si de aceea am mai multe
+clase care mostenesc din LCPLExcetion.
+
+
+    Bonus
+
+    Am realizat si bonusul. Nu am facut optimizari de asociere, dar am
+rezolvat complet expresii de:
+-   adunare
+-   inmultire
+-   impartire
+-   minus unar
+-   scadere
+-   mai mic
+-   mai mic sau egal
+-   negare logica
+-   operatorul egal
+-   conditie logica if --> daca conditia poate fi evaluata la compilare,
+    if-ul este eliminat complet si inlocuit cu blocul then/else corespunzator
+-   conditie logica while --> in caz daca poate fi evaluata la 0, este
+    eliminat complet blocul
+-   indici si stringul la substring --> si aplicare de substring daca indicii
+    au fost redusi la intregi
+
+    Am implementat bonusul pornind de la premiza ca toata analiza semantica
+era facuta de o functie recursiva de parcurgere a arborelui sintactic:
+void solveTypeAndVariable(expresie). Pentru bonus, am schimbat tipul returnat
+de aceasta functie, si anume am facut-o sa returneze expresia _modificata_.
+Acest lucru este important pentru a putea face reducerile dintr-o singura
+parcurgere. Dupa implementarea bonusului am modificat scripturile de testare
+pentru a utiliza optiunea bonus. Rezultatele runtime au ramas neafectate.
+    Exemple din fisierul "bonus.lcpl":
+
+("aaaa" + "bbbb")[-(1 - 2), 5 - 1]; ==> "aaa";
+("aaaa" + 1)[-(1 - 2), 5 * 6];      ==> "aaaa1"[1, 30];
+
+if !(!(1 + 2)) then                 ==> 1
+    1 < 1;                          ==> 0 Eliminat complet
+else
+    1 + -((1)) <= -1 + 2 / 2;       ==> 1
+end
+
+while "1" == 1 + "2" loop           ==> 0
+    "asd";                          ==> null body
+    1 + 1;
+end;
+
+    Am adaugat comentarii in cod unde am considerat necesar. Nu sunt prea
+multe locuri pentru ca codul mi se pare oarecum self explanatory. Nu am
+truncat liniile la 100 de caracatere in mod intentionat.
+    Am adaugat si fisierele de test in arhiva pentru ca nici in ziua de
+deadline nu am putut rula tema pe vmchecker, din motive ca nu se compileaza
+pe vmchecker.
+
+
+    Dificultati intampinate:
+
+-   Iar am avut impresia ca fac reverse-engineering pentru a afla cum a fost
+    implementat analizorul semantic pus la dispozitie, pentru a obtine
+    aceleasi rezultate in consecinta. Unele lucruri erau tratate ciudat, in
+    special cand e vorba de casturi si tipul returnat de if / void.
+-   O problema MAJORA (am intampinat-o de multe ori si aveam buguri extrem de
+    rele din cauza ei) era prezenta parametrului type in BaseDispatch. Acesta
+    facea shadowing la cel definit in Expression, fapt care conducea la
+    probleme in momentul cand se faceau casturi polimorfice BaseDispatch ->
+    Expression.
+-   Cand rulez cy mylcpltest.sh imi apar la cateva teste linii de genul:
+    1c1
+    < igRuntime error : Program aborted.
+    ---
+    > igRuntime error : Program aborted.
+    Presupun ca este vorba de terminatorul de linie. Daca se face diff cu
+    optiunea --strip-trailing-cr nu mai apare nimic. In orice caz, fisierele
+    *.run sunt identice cu testele de referinta.
+
+
+[1] http://elf.cs.pub.ro/cpl/wiki/_media/teme/tema2-arhiva.zip
+[2] http://elf.cs.pub.ro/cpl/wiki/_media/teme/tema2-teste.zip

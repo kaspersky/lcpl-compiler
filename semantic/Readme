@@ -1,0 +1,93 @@
+Vladimir Cernov 343C1
+
+        Tema 1 la Compilatoare
+
+Mediu de lucru:
+-   Ubuntu 13.10
+-   Oracle Java SDK 1.7.0_45
+-   ANTRL v4.1
+
+Folosire:
+    $ make build
+    $ ./test.sh
+
+    Am ales antlr4 pentru ca este ultima versiune. Acest lucru aduce dupa sine
+o parte buna si una rea.
+    Partea buna consta intr-o gramatica mai simpla. A fost imbunatatit
+algoritmul de parsare, acesta acceptand direct left recursion. In principal,
+au fost posibile lucruri de genul "expr = expr '*' expr | expr '+' expr | 2",
+rezolvand totodata si problema prioritatii/asociativitatii operatorilor.
+    Partea mai dificila a fost faptul ca in antlr4 nu mai exista conceptul de
+AST. In consecinta, a trebuit practic sa-l construiesc de la 0, desi acest
+lucru a fost oarecum straightforward.
+
+    Antlr4 pune la dispozitie o interfata de Visitor. Dupa parsare, este creat
+un arbore. Pentru parcurgerea acestuia, interfata de visitor contine functii,
+care se apeleaza la parsarea nodurilor din arbore.
+    De ex., pentru regula:
+
+cast: '{' type expr '}';
+
+au fost create functii de genul "Tip visitCast(context) {}",
+"Tip visitExpr(context) {}", in corpul carora poate fi implementata crearea
+AST-ului cu clasele din pachetul "ro/pub/cs/lcpl/".
+
+    Asadar, rezolvarea temei consta intr-un fisier care contine gramatica si o
+sursa Java, care contine logica de creare a AST-ului:
+-   ex.g
+-   Visitor.java
+
+
+    Am incercat sa fac si bonusul, desi cerinta mi se pare un foarte vaga.
+Bonusul l-am facut in felul urmator:
+-   Am scris o sursa noua, "Vector.lcpl", care contine o clasa ce
+    implementeaza functionalitatea de vector. Aceasta functioneaza ca o lista
+    inlantuita.
+-   Am modificat gramatica, ca sa valideze sintactic constructiile specifice
+    vectorilor. Reprezinta practic un fel de extensie a limbajului.
+-   Am modificat Visitors.java, pentru a modifica constructiile de vectori
+    in constructii lcpl valide, in felul urmator:
+    *   String [] array  -->>  Vect array
+    *   new String[8]  -->>  [(new Vect).init 8]
+    *   array[3]  -->>  [array.get 3]
+    *   array[3] = 4  -->> [array.set 3, 4]
+    Ultima constructie se bazeaza pe a 3-a, cand depisteaza o atribuire
+    modifica array.get 3 in array.set 3 si mai adauga 4 la argumente.
+-   Pentru verificare am folosit programul de la sectiunea bonus din enunt, cu
+    stiva. Se verifica cu "make bonus". Analizorul semantic si interpretorul
+    este cel de la resurse, l-am inclus in arhiva.
+-   Din pacate, nu lucreaza decat cu vectori de stringuri. Poate fi extins
+    usor la intregi, scriind inca o clasa lcpl speciala. Problema pe care am
+    intampinat-o consta in casturile explicite. De ex., in constructia:
+    MyClass a = array[30], este necesar un cast explicit a valorii din vector.
+    Insa in analiza sintactica nu am cum sa aflu tipul variabilei array (cel
+    putin n-am vazut undeva ceva de genul gettype), motiv din care pur si
+    simplu nu stiu la ce tip sa castez. Pentru aceasta as fi avut nevoie sa
+    fac analiza semantica, sau clasa Symbol sa stocheze si tip, in afara de
+    nume.
+
+
+    Dificultati intampinate:
+
+-   M-am chinuit mult pana m-am prins cum s-ar genera arborele AST folosind
+    antlr4.
+-   Specificatiile de limbaj mi s-au parut putin haotice, ceea ce mi-a facut
+    viata un pic mai dificila. Cel mai probabil ca o sa fie acelasi lucru si
+    la analiza semantica.
+-   Crearea AST-ului a impus scrierea gramaticii intr-o anumita forma. Nu sunt
+    telepat, nu stiu gramatica din solutia oficiala, de aceea cand
+    implementam Visitor.java aveam impresia ca fac reverse engineering,
+    uitandu-ma in fisierele ast oficiale, incercand sa ma prind cum arata
+    gramatica. As fi dorit un pic de libertatea la crearea AST-ului.
+-   Scopes. Deja am zis prea mult.
+-   Escapari in stringuri. Pana la urma, i-am dat eu de capat.
+-   Pica un test pentru ca nu gasea linia buna la inmultire. Am rezolvat
+    folosind getLine() pentru expresia din dreapta. Teoretic, trebuia sa
+    mearga de la inceput, pentru ca foloseam getLine() pe operator '*'.
+-   Testarea pe vmchecker. Am fost profund dezamagit ca dupa ce in enunt s-a
+    specificat ca putem modifica arhiva de pornire in orice fel, de fapt pe
+    vmchecker sa se foloseasca instructiuni hard-codate de build, fapt care a
+    condus la imposibilitatea rularii temei mele pe vmchecker.
+    Am inclus un Makefile de build si un script de testare, care sa usureze
+    testarea temei. Detalii in "./test.sh". Rog pentru orice problema legata
+    de aceasta parte sa ma contactati.
